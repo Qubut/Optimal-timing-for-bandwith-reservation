@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "optimal-timing-for-bandwidth-reservation"
+version = "0.1.0"
+description = ""
+authors = ["Qubut <s-aahmed@haw-landshut.de>"]
+readme = "README.md"
+packages = [{include = "optimal_timing_for_bandwidth_reservation"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
