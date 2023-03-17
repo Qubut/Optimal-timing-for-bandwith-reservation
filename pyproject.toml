@@ -8,6 +8,11 @@ packages = [{include = "optimal_timing_for_bandwidth_reservation"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
+pandas = "^1.5.3"
+numpy = "^1.24.2"
+torch = "^2.0.0"
+scikit-learn = "^1.2.2"
+matplotlib = "^3.7.1"
 
 
 [build-system]
