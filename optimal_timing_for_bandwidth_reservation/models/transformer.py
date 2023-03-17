@@ -32,7 +32,7 @@ class TransformerModel(nn.Module):
         super(TransformerModel, self).__init__()
 
         # Set model attributes
-        self.model_type = 'Transformer'
+        self.model_type = "Transformer"
         self.pos_encoder = _PositionalEncoding(ninp, dropout)
         encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
@@ -54,8 +54,11 @@ class TransformerModel(nn.Module):
 
         """
         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float(
-            '-inf')).masked_fill(mask == 1, float(0.0))
+        mask = (
+            mask.float()
+            .masked_fill(mask == 0, float("-inf"))
+            .masked_fill(mask == 1, float(0.0))
+        )
         return mask
 
     def init_weights(self):
@@ -113,14 +116,15 @@ class _PositionalEncoding(nn.Module):
         # Generate the positional encoding tensor
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(
-            0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
+        )
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
 
         # Register the positional encoding tensor as a buffer
-        self.register_buffer('_pe', pe)
+        self.register_buffer("_pe", pe)
 
     def forward(self, x):
         """
@@ -133,7 +137,7 @@ class _PositionalEncoding(nn.Module):
             torch.Tensor: The output tensor with positional encoding applied.
         """
         # Apply the positional encoding tensor to the input tensor
-        x = x + self._pe[:x.size(0), :]
+        x = x + self._pe[: x.size(0), :]
 
         # Apply dropout to the output tensor
         return self.dropout(x)

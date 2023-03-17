@@ -18,6 +18,7 @@ import torch
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
+
 class DataProcessor:
 
     """
@@ -38,6 +39,7 @@ class DataProcessor:
         test_data (numpy.ndarray): The normalized testing data.
 
     """
+
     def __init__(self, train_file: str, test_file: str, delta: int, device: str):
         self.train_file = train_file
         self.test_file = test_file
@@ -51,20 +53,20 @@ class DataProcessor:
         """
         Load and normalize the training and testing data.
         """
-        df = pd.read_csv(self.train_file, sep=',')
-        load = df['Lane 1 Flow (Veh/5 Minutes)'].values.astype(float)
+        df = pd.read_csv(self.train_file, sep=",")
+        load = df["Lane 1 Flow (Veh/5 Minutes)"].values.astype(float)
         hourly_load = load.reshape((-1, 12)).mean(1)
         self.train_data = self.scaler.fit_transform(hourly_load.reshape(-1, 1))
 
-        df2 = pd.read_csv(self.test_file, sep=',')
-        load2 = df2['Lane 1 Flow (Veh/5 Minutes)'].values.astype(float)
+        df2 = pd.read_csv(self.test_file, sep=",")
+        load2 = df2["Lane 1 Flow (Veh/5 Minutes)"].values.astype(float)
         hourly_load2 = load2.reshape((-1, 12)).mean(1)
         self.test_data = self.scaler.transform(hourly_load2.reshape(-1, 1))
 
     def create_inout_sequences(self):
         """
         Create input-output sequences for training.
-        
+
         Returns:
             List[Tuple[torch.Tensor, torch.Tensor]]: A list of tuples of input and output sequences.
         """
@@ -73,8 +75,8 @@ class DataProcessor:
         inout_seq = []
         L = len(self.train_data)
         for i in range(L - self.delta):
-            train_seq = train_data[i:i + self.delta]
-            train_label = train_data[i + self.delta:i + self.delta + 1]
+            train_seq = train_data[i : i + self.delta]
+            train_label = train_data[i + self.delta : i + self.delta + 1]
             inout_seq.append((train_seq, train_label))
         return inout_seq
 
@@ -95,6 +97,3 @@ class DataProcessor:
             torch.Tensor: The normalized training data.
         """
         return torch.FloatTensor(self.train_data).flatten()
-
-
-

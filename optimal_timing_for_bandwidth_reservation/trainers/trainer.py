@@ -41,7 +41,6 @@ class Trainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
 
-
     def _train_iteration(self, seq, labels):
         """
         Performs a single training iteration.

@@ -36,8 +36,14 @@ class LSTM(nn.Module):
             torch.Tensor: The predicted output sequence of shape (batch_size, output_size).
         """
         # Initialize the hidden and cell states to zeros
-        h0 = (torch.zeros(1, input_seq.size(1), self.hidden_layer_size).to(input_seq.device),
-              torch.zeros(1, input_seq.size(1), self.hidden_layer_size).to(input_seq.device))
+        h0 = (
+            torch.zeros(1, input_seq.size(1), self.hidden_layer_size).to(
+                input_seq.device
+            ),
+            torch.zeros(1, input_seq.size(1), self.hidden_layer_size).to(
+                input_seq.device
+            ),
+        )
 
         # Pass the input sequence through the LSTM layer
         lstm_out, h0 = self.lstm(input_seq, h0)

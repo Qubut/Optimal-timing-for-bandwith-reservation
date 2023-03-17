@@ -21,9 +21,9 @@ from utils.data_processor import DataProcessor
 from utils.batch_generator import BatchGenerator
 from trainers.trainer import Trainer
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Creating DataProcessor object to load and process the data
-    dp = DataProcessor('train.csv', 'test.csv', delta, device)
+    dp = DataProcessor("train.csv", "test.csv", delta, device)
     dp.load_data()
     train_inout_seq = dp.create_inout_sequences()
 
@@ -38,18 +38,20 @@ if __name__ == '__main__':
         batch_gen = BatchGenerator(train_inout_seq, bsize)
         loss = lstm_trainer.train(batch_gen)
         if i % freq_printing == 0:
-            print(f'epoch: {i:3} loss: {loss:10.8f}')
+            print(f"epoch: {i:3} loss: {loss:10.8f}")
 
     # Creating Transformer model and trainer
     transformer_model = TransformerModel(100, 10, 10, 1, 0.2).to(device)
     transformer_loss = nn.MSELoss()
     transformer_opt = optim.AdamW(transformer_model.parameters(), lr=5e-3)
     scheduler = optim.lr_scheduler.StepLR(transformer_opt, 1.0, gamma=0.95)
-    transformer_trainer = Trainer(transformer_model, transformer_loss, transformer_opt, scheduler)
+    transformer_trainer = Trainer(
+        transformer_model, transformer_loss, transformer_opt, scheduler
+    )
 
     # Training Transformer model
     for i in range(epochs):
         batch_gen = BatchGenerator(train_inout_seq, bsize)
         loss = transformer_trainer.train_with_scheduler(batch_gen)
         if i % freq_printing == 0:
-            print(f'epoch: {i:3} loss: {loss:10.8f}')
+            print(f"epoch: {i:3} loss: {loss:10.8f}")
