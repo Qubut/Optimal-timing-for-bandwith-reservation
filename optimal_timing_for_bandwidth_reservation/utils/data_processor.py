@@ -44,8 +44,7 @@ class DataProcessor:
     def __init__(
         self,
         data_file: str,
-        device: str,
-        delta: int = 100,
+        delta: int = 32,
         train_ratio: float = 0.7,
         window_size=100,
     ):
@@ -55,8 +54,7 @@ class DataProcessor:
         self.scaler = RollingWindowScaler(window_size)
         self.train_data = None
         self.test_data = None
-        self.device = device
-
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     def load_data(self):
         """
         Load and normalize the training and testing data.
@@ -82,7 +80,7 @@ class DataProcessor:
         """
         inout_seq = []
         length = int(len(data))
-        delta = 100
+        delta = self.delta
         
         for i in range(length - delta):
             seq = (

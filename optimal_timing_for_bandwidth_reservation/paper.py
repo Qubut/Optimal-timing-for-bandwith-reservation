@@ -72,7 +72,7 @@ def evaluate_model(model, test_seqs):
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter("runs/time_series_experiment")
-    dp = DataProcessor("./datasets/Dataset_NO1.csv", delta, device)
+    dp = DataProcessor("./datasets/Dataset_NO1.csv")
     dp.load_data()
     train_inout_seq = dp.get_train_sequences()
     test_seqs = dp.get_test_sequences()

@@ -34,8 +34,7 @@ class BatchGenerator:
     def __init__(self, data: List[Tuple[torch.Tensor, torch.Tensor]], batch_size: int):
         self.data = data
         self.batch_size = batch_size
-
-        # calculate the total number of batches
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.num_batches = len(data) // batch_size
 
     def __len__(self) -> int:
@@ -71,16 +70,18 @@ class BatchGenerator:
         ]
 
         # get the input data and add an extra dimension at the end
-        batch_input = [d[0].unsqueeze(-1) for d in batch_data]
+        batch_input = [d[0] for d in batch_data]
+
 
         # get the target data
         batch_target = [d[1] for d in batch_data]
 
         # stack the input data along the last dimension and move it to the device
-        batch_input = torch.stack(batch_input, dim=1).to(device)
+        batch_input = torch.cat(batch_input, dim=1).to(self.device)
+
 
         # stack the target data and flatten it, then move it to the device
-        batch_target = torch.stack(batch_target).flatten().to(device)
+        batch_target = torch.stack(batch_target).flatten().to(self.device)
 
         # increment the batch index
         self.idx += 1
