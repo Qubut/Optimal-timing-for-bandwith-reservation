@@ -1,4 +1,5 @@
 from torch import device, cuda
+
 delta = 8
 epochs = 150
 bsize = 32

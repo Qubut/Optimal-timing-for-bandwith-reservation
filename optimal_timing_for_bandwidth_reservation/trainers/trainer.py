@@ -26,7 +26,7 @@ class Trainer:
         train_with_scheduler(data_loader): Trains the model on the provided data with learning rate scheduling.
     """
 
-    def __init__(self, model, loss_fn, optimizer, scheduler=None):
+    def __init__(self, model, loss_fn, optimizer, device, scheduler=None):
         """
         Constructs a `Trainer` instance.
 
@@ -40,6 +40,7 @@ class Trainer:
         self.loss_fn = loss_fn
         self.optimizer = optimizer
         self.scheduler = scheduler
+        self.device = device
 
     def _train_iteration(self, seq, labels):
         """
@@ -52,7 +53,7 @@ class Trainer:
         Returns:
             The loss of the current iteration.
         """
-        seq, labels = seq.to(device), labels.to(device)
+        seq, labels = seq.to(self.device), labels.to(self.device)
         y_pred = self.model(seq).squeeze()
         loss = self.loss_fn(y_pred, labels)
         self.optimizer.zero_grad()

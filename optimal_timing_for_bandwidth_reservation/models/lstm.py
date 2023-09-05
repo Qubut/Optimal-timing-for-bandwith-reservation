@@ -20,7 +20,7 @@ class LSTM(nn.Module):
         self.hidden_layer_size = hidden_layer_size
 
         # Define the LSTM layer
-        self.lstm = nn.LSTM(input_size, hidden_layer_size)
+        self.lstm = nn.LSTM(input_size, hidden_layer_size, batch_first=True)
 
         # Define the linear layer to produce the output
         self.linear = nn.Linear(hidden_layer_size, output_size)

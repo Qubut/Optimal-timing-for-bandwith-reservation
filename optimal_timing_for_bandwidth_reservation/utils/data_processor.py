@@ -16,7 +16,8 @@ Classes:
 
 import torch
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler
+
+from .scalers import RollingWindowScaler
 
 
 class DataProcessor:
@@ -40,11 +41,18 @@ class DataProcessor:
 
     """
 
-    def __init__(self, train_file: str, test_file: str, delta: int, device: str):
-        self.train_file = train_file
-        self.test_file = test_file
+    def __init__(
+        self,
+        data_file: str,
+        device: str,
+        delta: int = 100,
+        train_ratio: float = 0.7,
+        window_size=100,
+    ):
+        self.data_file = data_file
+        self.train_ratio = train_ratio
         self.delta = delta
-        self.scaler = MinMaxScaler(feature_range=(-1, 1))
+        self.scaler = RollingWindowScaler(window_size)
         self.train_data = None
         self.test_data = None
         self.device = device
@@ -53,47 +61,57 @@ class DataProcessor:
         """
         Load and normalize the training and testing data.
         """
-        df = pd.read_csv(self.train_file, sep=",")
-        load = df["Lane 1 Flow (Veh/5 Minutes)"].values.astype(float)
-        hourly_load = load.reshape((-1, 12)).mean(1)
-        self.train_data = self.scaler.fit_transform(hourly_load.reshape(-1, 1))
+        df = pd.read_csv(self.data_file, sep=",", parse_dates=[0])
+        TIMESTAMP_COL = 0
+        df = df.sort_values(by=df.columns[TIMESTAMP_COL])
 
-        df2 = pd.read_csv(self.test_file, sep=",")
-        load2 = df2["Lane 1 Flow (Veh/5 Minutes)"].values.astype(float)
-        hourly_load2 = load2.reshape((-1, 12)).mean(1)
-        self.test_data = self.scaler.transform(hourly_load2.reshape(-1, 1))
+        prices = df.iloc[:, -1].values.astype(float).reshape(-1, 1)
+        prices_normalized = self.scaler.transform(prices)
 
-    def create_inout_sequences(self):
+        # Split data into training and test sets based on the train_ratio
+        train_size = int(len(prices_normalized) * self.train_ratio)
+        self.train_data = prices_normalized[:train_size]
+        self.test_data = prices_normalized[train_size:]
+
+    def _create_inout_sequences(self, data):
         """
-        Create input-output sequences for training.
+        Create input-output sequences for training or testing.
 
         Returns:
             List[Tuple[torch.Tensor, torch.Tensor]]: A list of tuples of input and output sequences.
         """
-        train_data = self.get_train_data()
-        test_data = self.get_test_data()
         inout_seq = []
-        L = len(self.train_data)
-        for i in range(L - self.delta):
-            train_seq = train_data[i : i + self.delta]
-            train_label = train_data[i + self.delta : i + self.delta + 1]
-            inout_seq.append((train_seq, train_label))
+        length = int(len(data))
+        delta = 100
+        
+        for i in range(length - delta):
+            seq = (
+                torch.FloatTensor(data[i : i + delta])
+                .view(delta, -1, 1)
+                .to(self.device)
+            )
+            label = (
+                torch.FloatTensor(data[i + delta : i + delta + 1])
+                .view(1, -1)
+                .to(self.device)
+            )
+            inout_seq.append((seq, label))
         return inout_seq
 
-    def get_test_data(self):
+    def get_test_sequences(self):
         """
-        Get the normalized testing data as a PyTorch tensor.
+        Get the sequences for testing.
 
         Returns:
-            torch.Tensor: The normalized testing data.
+            List[Tuple[torch.Tensor, torch.Tensor]]: A list of tuples of input and output sequences for testing.
         """
-        return torch.FloatTensor(self.test_data).view(-1, self.delta).to(self.device)
+        return self._create_inout_sequences(self.test_data)
 
-    def get_train_data(self):
+    def get_train_sequences(self):
         """
-        Get the normalized training data as a flattened PyTorch tensor.
+        Get the sequences for training.
 
         Returns:
-            torch.Tensor: The normalized training data.
+            List[Tuple[torch.Tensor, torch.Tensor]]: A list of tuples of input and output sequences for training.
         """
-        return torch.FloatTensor(self.train_data).flatten()
+        return self._create_inout_sequences(self.train_data)
