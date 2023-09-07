@@ -14,89 +14,116 @@ Classes:
 
 """
 
+from typing import List, Tuple
+import numpy as np
 import torch
 import pandas as pd
 
 from .scalers import RollingWindowScaler
+from config import device
 
 
 class DataProcessor:
-
     """
     A class for loading and processing data for time series prediction.
 
     Args:
-        train_file (str): The file path for the training data.
-        test_file (str): The file path for the testing data.
+        data_files (List[str]): The list of file paths for the datasets, one for each provider.
         delta (int): The time step for the input sequence.
-        device (str): The device to use for computation (e.g., 'cpu', 'cuda').
+        train_ratio (float): The train-test split ratio.
 
     Attributes:
-        train_file (str): The file path for the training data.
-        test_file (str): The file path for the testing data.
+        data_files (List[str]): The list of file paths for the datasets.
         delta (int): The time step for the input sequence.
-        scaler (sklearn.preprocessing.MinMaxScaler): The scaler for normalizing the data.
+        scaler (RollingWindowScaler): The scaler for normalizing the data.
         train_data (numpy.ndarray): The normalized training data.
         test_data (numpy.ndarray): The normalized testing data.
-
     """
 
     def __init__(
         self,
-        data_file: str,
+        data_files: List[str],
         delta: int = 32,
         train_ratio: float = 0.7,
+        validation_ratio: float = 0.15,
         window_size=100,
     ):
-        self.data_file = data_file
+        self.data_filess = data_files
         self.train_ratio = train_ratio
+        self.validation_ratio = validation_ratio
         self.delta = delta
         self.scaler = RollingWindowScaler(window_size)
         self.train_data = None
+        self.validation_data = None
         self.test_data = None
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device
+        self.num_providers = len(data_files)
     def load_data(self):
-        """
-        Load and normalize the training and testing data.
-        """
-        df = pd.read_csv(self.data_file, sep=",", parse_dates=[0])
-        TIMESTAMP_COL = 0
-        df = df.sort_values(by=df.columns[TIMESTAMP_COL])
+        main_df = pd.read_csv(self.data_files[0], sep=",", parse_dates=["Date"])
+        main_df = main_df.rename(columns={"Price": "Price_0"})
+        main_df.drop(columns=["Instance Type", "Region"], inplace=True)
 
-        prices = df.iloc[:, -1].values.astype(float).reshape(-1, 1)
-        prices_normalized = self.scaler.transform(prices)
+        for idx, file in enumerate(self.data_files[1:], 1):
+            df = pd.read_csv(file, sep=",", parse_dates=["Date"])
+            df.drop(columns=["Instance Type", "Region"], inplace=True)
+            df = df.rename(columns={"Price": f"Price_{idx}"})
+            main_df = pd.merge(main_df, df, on="Date", how="outer")
 
-        # Split data into training and test sets based on the train_ratio
-        train_size = int(len(prices_normalized) * self.train_ratio)
-        self.train_data = prices_normalized[:train_size]
-        self.test_data = prices_normalized[train_size:]
+        main_df.sort_values(by="Date", inplace=True)
+        main_df.fillna(method="ffill", inplace=True)
+        main_df.fillna(method="bfill", inplace=True)
 
-    def _create_inout_sequences(self, data):
+        # Convert timestamp to unix timestamp (seconds since epoch)
+        main_df["timestamp_unix"] = main_df["Date"].astype(np.int64) // 10**9
+        features = main_df["timestamp_unix"].values.reshape(-1, 1)
+        prices = main_df.iloc[
+            :, 1:-1
+        ].values  # Excluding the Date and the unix timestamp
+
+        prices_normalized = self.scaler.transform(prices.ravel()).reshape(prices.shape)
+
+        data = np.hstack([features, prices_normalized])
+
+        train_size = int(len(data) * self.train_ratio)
+        
+        val_size = int(train_size * self.validation_ratio)
+        _train_size = train_size - val_size
+        
+        self.train_data = data[:_train_size]
+        self.validation_data = data[_train_size : _train_size + val_size]
+        self.test_data = data[_train_size + val_size:]
+        
+    def _create_inout_sequences(
+        self, data: np.ndarray
+    ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         """
         Create input-output sequences for training or testing.
 
         Returns:
             List[Tuple[torch.Tensor, torch.Tensor]]: A list of tuples of input and output sequences.
         """
+
         inout_seq = []
-        length = int(len(data))
-        delta = self.delta
-        
-        for i in range(length - delta):
+        length = len(data)
+
+        for i in range(length - self.delta):
+            # The input is just the timestamp, so only the first column is taken
             seq = (
-                torch.FloatTensor(data[i : i + delta])
-                .view(delta, -1, 1)
+                torch.FloatTensor(data[i : i + self.delta, 0])
+                .view(self.delta, -1, 1)
                 .to(self.device)
             )
+
             label = (
-                torch.FloatTensor(data[i + delta : i + delta + 1])
-                .view(1, -1)
+                torch.FloatTensor(data[i + self.delta : i + self.delta + 1, 1:])
+                .view(1, -1, self.num_providers)
                 .to(self.device)
             )
-            inout_seq.append((seq, label))
+
+        inout_seq.append((seq, label))
         return inout_seq
 
-    def get_test_sequences(self):
+    def get_test_sequences(self) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         """
         Get the sequences for testing.
 
@@ -105,7 +132,7 @@ class DataProcessor:
         """
         return self._create_inout_sequences(self.test_data)
 
-    def get_train_sequences(self):
+    def get_train_sequences(self) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         """
         Get the sequences for training.
 
@@ -113,3 +140,12 @@ class DataProcessor:
             List[Tuple[torch.Tensor, torch.Tensor]]: A list of tuples of input and output sequences for training.
         """
         return self._create_inout_sequences(self.train_data)
+    
+    def get_validation_sequences(self) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+        """
+        Get the sequences for validation.
+
+        Returns:
+            List[Tuple[torch.Tensor, torch.Tensor]]: A list of tuples of input and output sequences for validation.
+        """
+        return self._create_inout_sequences(self.validation_data)

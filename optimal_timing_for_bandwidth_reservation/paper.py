@@ -27,33 +27,6 @@ from utils.data_processor import DataProcessor
 from utils.batch_generator import BatchGenerator
 from trainers.trainer import Trainer
 
-
-def train_and_test(model, optimizer, loss_fn, device, scheduler=None):
-    trainer = Trainer(model, loss_fn, optimizer, device, scheduler)
-    losses = []
-    times = []
-
-    for epoch in range(epochs):
-        start_time = time.time()
-        batch_gen = BatchGenerator(train_inout_seq, bsize)
-
-        if scheduler:
-            loss = trainer.train_with_scheduler(batch_gen)
-        else:
-            loss = trainer.train(batch_gen)
-
-        end_time = time.time()
-
-        losses.append(loss)
-        times.append(end_time - start_time)
-
-        if epoch % freq_printing == 0:
-            writer.add_scalar(f"Loss/{type(model).__name__}", loss, epoch)
-            print(f"{type(model).__name__} - epoch: {epoch:3} loss: {loss:10.8f}")
-
-    return losses, times
-
-
 def evaluate_model(model, test_seqs):
     model.eval()
     y_true = []
@@ -69,47 +42,87 @@ def evaluate_model(model, test_seqs):
     return mse
 
 
+
+def train_and_test(model, optimizer, loss_fn, device, scheduler=None, is_transformer=False):
+    trainer = Trainer(model, loss_fn, optimizer, device, scheduler, is_transformer)
+    losses = []
+    accuracies = []
+    times = []
+
+    for epoch in range(epochs):
+        start_time = time.time()
+        batch_gen = BatchGenerator(train_inout_seq, bsize)
+
+        if scheduler:
+            loss, accuracy = trainer.train_with_scheduler(batch_gen)
+        else:
+            loss, accuracy = trainer.train(batch_gen)
+
+        end_time = time.time()
+
+        losses.append(loss)
+        accuracies.append(accuracy)
+        times.append(end_time - start_time)
+
+        if epoch % freq_printing == 0:
+            writer.add_scalar(f"Loss/{type(model).__name__}", loss, epoch)
+            writer.add_scalar(f"Accuracy/{type(model).__name__}", accuracy, epoch)
+            print(f"{type(model).__name__} - epoch: {epoch:3} loss: {loss:10.8f} accuracy: {accuracy:5.2f}")
+
+    return losses, accuracies, times
+
 if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter("runs/time_series_experiment")
-    dp = DataProcessor("./datasets/Dataset_NO1.csv")
+    files = ["./datasets/Dataset_NO1.csv", "./datasets/Dataset_NO2.csv"]
+    dp = DataProcessor(files)
     dp.load_data()
     train_inout_seq = dp.get_train_sequences()
+    validation_inout_seq = dp.get_validation_sequences()
     test_seqs = dp.get_test_sequences()
 
-    # LSTM model training and testing
-    lstm_model = LSTM().to(device)
+    lstm_model = LSTM(num_providers=dp.num_providers).to(device)
     lstm_optimizer = optim.Adam(lstm_model.parameters(), lr=1e-3)
     lstm_loss = nn.MSELoss()
 
-    lstm_losses, lstm_times = train_and_test(
+    lstm_losses, lstm_accuracies, lstm_times = train_and_test(
         lstm_model, lstm_optimizer, lstm_loss, device
     )
+
+    lstm_val_mse = evaluate_model(lstm_model, validation_inout_seq)
+    print(f"LSTM MSE on validation data: {lstm_val_mse}")
     lstm_mse = evaluate_model(lstm_model, test_seqs)
     print(f"LSTM MSE on test data: {lstm_mse}")
 
-    # Transformer model training and testing
-    transformer_model = TransformerModel(100, 10, 10, 1, 0.2).to(device)
+    torch.save(lstm_model.state_dict(), "./out/models/lstm_model.pth")
+
+    transformer_model = TransformerModel(
+        ninp=1, nhead=1, nhid=100, nlayers=1, dropout=0.5
+    ).to(device)
     transformer_optimizer = optim.AdamW(transformer_model.parameters(), lr=5e-3)
     transformer_loss = nn.MSELoss()
     transformer_scheduler = optim.lr_scheduler.StepLR(
         transformer_optimizer, 1.0, gamma=0.95
     )
 
-    transformer_losses, transformer_times = train_and_test(
-        transformer_model,
-        transformer_optimizer,
-        transformer_loss,
-        device,
-        transformer_scheduler,
+    transformer_losses, transformer_accuracies, transformer_times = train_and_test(
+        transformer_model, transformer_optimizer, transformer_loss, device, transformer_scheduler, is_transformer=True
     )
+
+    transformer_val_mse = evaluate_model(transformer_model, validation_inout_seq)
+    print(f"Transformer MSE on validation data: {transformer_val_mse}")
     transformer_mse = evaluate_model(transformer_model, test_seqs)
     print(f"Transformer MSE on test data: {transformer_mse}")
 
-    # Save the losses and times
-    np.save("out/lstm/lstm_iil.npy", lstm_losses)
-    np.save("out/transformer/tr_iil.npy", transformer_losses)
-    np.save("out/lstm/lstm_times.npy", lstm_times)
-    np.save("out/transformer/tr_times.npy", transformer_times)
+    torch.save(transformer_model.state_dict(), "./out/models/transformer_model.pth")
 
+    np.save("out/lstm/lstm_iil.npy", lstm_losses)
+    np.save("out/lstm/lstm_acc.npy", lstm_accuracies)
+    np.save("out/lstm/lstm_times.npy", lstm_times)
+    np.save("out/lstm/lstm_validation_iil.npy", lstm_val_mse)
+
+    np.save("out/transformer/tr_iil.npy", transformer_losses)
+    np.save("out/transformer/tr_acc.npy", transformer_accuracies)
+    np.save("out/transformer/tr_times.npy", transformer_times)
+    np.save("out/transformer/tr_validation_iil.npy", transformer_val_mse)
+    
     writer.close()

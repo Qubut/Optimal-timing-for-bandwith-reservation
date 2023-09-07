@@ -28,7 +28,15 @@ class TransformerModel(nn.Module):
 
     """
 
-    def __init__(self, ninp: int, nhead: int, nhid: int, nlayers: int, dropout=0.5):
+    def __init__(
+        self,
+        ninp: int,
+        nhead: int,
+        nhid: int,
+        nlayers: int,
+        num_providers=1,
+        dropout=0.5,
+    ):
         super(TransformerModel, self).__init__()
 
         # Set model attributes
@@ -36,7 +44,7 @@ class TransformerModel(nn.Module):
         self.pos_encoder = _PositionalEncoding(ninp, dropout)
         encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
-        self.decoder = nn.Linear(ninp, 1)
+        self.decoder = nn.Linear(ninp, num_providers)
 
         # Initialize weights
         self.init_weights()
@@ -79,12 +87,12 @@ class TransformerModel(nn.Module):
             src_mask (torch.Tensor): The mask tensor of shape (seq_len, seq_len).
 
         Returns:
-            torch.Tensor: The output tensor of shape (batch_size, 1).
+            torch.Tensor: The output tensor of shape (batch_size, num_providers).
 
         """
         src = self.pos_encoder(src)
         output = self.transformer_encoder(src, src_mask)
-        output = output[-1]
+        output = output[:, -1, :]
         output = self.decoder(output)
         return output
 
