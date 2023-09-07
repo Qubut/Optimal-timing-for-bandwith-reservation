@@ -1,47 +1,92 @@
-# Optimal timing prediction using LSTM and Transformer models
+# Optimal Timing Prediction for Bandwidth Reservation
 
-This script trains LSTM and Transformer models to predict future values of a time series. 
+this project is an experiment to predict the prices for bandwidth reservation from different Network operators at a given moment using deep learning techniques. By harnessing the power of LSTM and Transformer architectures, this solution achieves high accuracy in its predictions, catering to diverse datasets and time series complexities.
 
-The LSTM model is implemented in the `models/lstm.py` file
+## Table of Contents
 
-and the Transformer model is implemented in the `models/transformer.py` file. 
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Dependencies](#dependencies)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Results](#results)
+- [License](#license)
 
-The data is processed using the `utils/data_processor.py` file
+## Features
 
-and batches are generated using the `utils/batch_generator.py` file.
+- **LSTM Model**: Utilizes Long Short-Term Memory networks, a type of recurrent neural network, for handling long-term dependencies in time series data.
+- **Transformer Model**: Employs the Transformer architecture, known for its efficiency in sequence transduction tasks.
 
-The training is done using the `trainers/trainer.py` file.
-Dependencies
 
-The script's dependencies are in `pyproject.toml` file
+## Project Structure
+
+
+- datasets/: Contains the raw data files.
+- models/: Contains the neural network architectures for both LSTM and Transformer models.
+- config/: Configuration settings and hyperparameters.
+- utils/: Utility functions for data processing and batching.
+- trainers/: Training logic for the neural network models.
+- visualisations/: Scripts and functions for visualizing training results.
+- out/: Contains trained model and measurements for visualization
+
+
+## Dependencies
+
+All the dependencies required for this project are listed in the `pyproject.toml` file for those using Poetry, and in the `requirements.txt` file for pip users.
 
 ## Installation
 
-To install the required dependencies, run the following command:
+### Using Poetry
 
-```sh
+1. If not installed, get [Poetry](https://python-poetry.org/).
+2. From the project's root directory, install the dependencies:
+
+```bash
 
 poetry install
+
+```
+### Using pip
+
+For those not using Poetry, dependencies can also be installed using pip:
+
+```bash
+
+pip install -r requirements.txt
+
 ```
 
 ## Usage
 
-    The train.csv and test.csv files should be placed in the same directory as the script.
-    To train the LSTM and Transformer models, run the following command:
+
+1. Data Processing:
+    Process the raw data using the DataProcessor class. This will ensure the data is correctly formatted, normalized, and split into training, validation, and test sets.
+
+2. Model Training:
+    Execute the paper.py script to train both the LSTM and Transformer models:
+
+
+```sh
+python paper.py
+
+```
+
+3. Result Visualization:
+
+After training, you can visualize the results by executing the plot.py script:
 
 ```sh
 
-poetry run python paper.py
-```
-    To create visualizations for the experiment results, run the following command:
+python plot.py
 
-```sh
-
-poetry run python plot.py
 ```
 
+you can also use poetry, eg: `poetry run python paper.py`
 
-## Output
+## Results
 
-    The paper.py file outputs the training loss of the LSTM and Transformer models.
-    The plot.py file creates multiple visualizations using the visualisations/plotting.py file to visualize the experiment results.
+    Once the models are trained, you'll find saved models and performance metrics in the out/ directory. Visualizations generated will provide insights into model performance, including loss and accuracy over time.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE.md file for details.
