@@ -58,20 +58,14 @@ pip install -r requirements.txt
 
 ## Usage
 
-
-1. Data Processing:
-    Process the raw data using the DataProcessor class. This will ensure the data is correctly formatted, normalized, and split into training, validation, and test sets.
-
-2. Model Training:
+1. Model Training:
     Execute the paper.py script to train both the LSTM and Transformer models:
-
-
 ```sh
 python paper.py
 
 ```
 
-3. Result Visualization:
+2. Result Visualization:
 
 After training, you can visualize the results by executing the plot.py script:
 
@@ -85,7 +79,7 @@ you can also use poetry, eg: `poetry run python paper.py`
 
 ## Results
 
-    Once the models are trained, you'll find saved models and performance metrics in the out/ directory. Visualizations generated will provide insights into model performance, including loss and accuracy over time.
+Once the models are trained, you'll find saved models and performance metrics in the out/ directory. Visualizations generated will provide insights into model performance, including loss and accuracy over time.
 
 ## License
 
