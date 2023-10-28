@@ -58,11 +58,13 @@ class DataPreProcessor:
         self.num_providers = len(data_files)
 
     def load_data(self):
-        dfs = []
+        def process_file(idx_file_tuple: Tuple[int, str]) -> dd.DataFrame:
+            idx, file = idx_file_tuple
 
-        for idx, file in enumerate(self.data_files):
+            # Read the CSV, assuming every file might have a header.
             df = dd.read_csv(file, sep=",", parse_dates=["Date"])
 
+            # Apply timezone localization based on Region
             df["Date"] = df["Date"].where(
                 df["Region"] == "us-west-1c", df["Date"].dt.tz_localize("US/Pacific")
             )
@@ -71,16 +73,11 @@ class DataPreProcessor:
             )
 
             df = df.drop(columns=["Instance Type", "Region"])
-            df = df.rename(columns={"Price": f"Price_{idx}"}).set_index("Date")
-            dfs.append(df)
+            return df.rename(columns={"Price": f"Price_{idx}"}).set_index("Date")
 
-        if len(dfs) > 1:
-            self.main_df = dd.concat(
-                dfs, axis=1, interleave_partitions=True
-            ).reset_index()
-        else:
-            self.main_df = dfs[0]
-
+        dfs = dd.from_delayed([dd.delayed(process_file)(item) for item in enumerate(self.data_files)])
+        
+        self.main_df = dfs.compute()
         self.main_df = self.main_df.fillna(method="ffill").fillna(method="bfill")
 
         # Convert timezone-aware datetime to timezone-naive datetime
