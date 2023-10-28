@@ -62,8 +62,9 @@ class DataPreProcessor:
             idx, file = idx_file_tuple
 
             # Read the CSV, assuming every file might have a header.
-            df = dd.read_csv(file, sep=",", parse_dates=["Date"])
-
+            df = dd.read_csv(file, sep=params.CSV_SEP, parse_dates=["Date"])
+            # Filter out rows where 'Date' column contains the string 'Date'
+            df = df[df["Date"] != "Date"]
             # Apply timezone localization based on Region
             df["Date"] = df["Date"].where(
                 df["Region"] == "us-west-1c", df["Date"].dt.tz_localize("US/Pacific")

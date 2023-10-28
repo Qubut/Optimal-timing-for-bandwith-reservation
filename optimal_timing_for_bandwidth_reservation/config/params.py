@@ -28,3 +28,4 @@ class Params:
     TRANSFORMER_RESULTS_PATH: str = "./out/transfomer"
     SAVED_MODELS_PATH: str = "./out/models"
     RUNS_LOG_PATH: str = "./runs"
+    CSV_SEP: str = ","
