@@ -14,6 +14,7 @@ Classes:
 from typing import List, Tuple
 import torch
 import dask.dataframe as dd
+import dask
 from .scalers import RollingWindowScaler
 from config.params import Params
 import numpy as np
@@ -73,7 +74,7 @@ class DataPreProcessor:
             df = df.drop(columns=["Instance Type", "Region"])
             return df.rename(columns={"Price": f"Price_{idx}"}).set_index("Date")
 
-        dfs = dd.from_delayed([dd.delayed(process_file)(item) for item in enumerate(self.data_files)])
+        dfs = dd.from_delayed([dask.delayed(process_file)(item) for item in enumerate(self.data_files)])
         
         self.main_df = dfs.compute()
         self.main_df = self.main_df.fillna(method="ffill").fillna(method="bfill")
