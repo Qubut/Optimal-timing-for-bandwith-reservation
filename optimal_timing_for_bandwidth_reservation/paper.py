@@ -7,7 +7,7 @@ Dependencies:
 - models.transformer (TransformerModel class from models/transformer.py)
 - models.lstm (LSTM class from models/lstm.py)
 - config.params (Params dataclass from config/params.py)
-- utils.data_processor (DataProcessor class from utils/data_processor.py)
+- utils.data_preprocessor (DataPreProcessor class from utils/data_preprocessor.py)
 - utils.batch_generator (BatchGenerator class from utils/batch_generator.py)
 - trainers.trainer (Trainer class from trainers/trainer.py)
 """
@@ -23,7 +23,7 @@ from sklearn.metrics import mean_squared_error
 from models.transformer import TransformerModel
 from models.lstm import LSTM
 from config.params import Params
-from utils.data_processor import DataProcessor
+from utils.data_preprocessor import DataPreProcessor
 from utils.batch_generator import BatchGenerator
 from trainers.trainer import Trainer
 
@@ -81,7 +81,7 @@ def train_and_test(
 if __name__ == "__main__":
     writer = SummaryWriter(f"{params.RUNS_LOG_PATH}/time_series_experiment")
     files = params.DATAFILES
-    dp = DataProcessor(files)
+    dp = DataPreProcessor(files)
     dp.load_data()
     train_inout_seq = dp.get_train_sequences()
     validation_inout_seq = dp.get_validation_sequences()

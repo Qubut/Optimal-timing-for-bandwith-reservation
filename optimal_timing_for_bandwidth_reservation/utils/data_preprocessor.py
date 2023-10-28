@@ -10,7 +10,7 @@ Dependencies:
 
 Classes:
 
-    DataProcessor: A class for loading and processing data for time series prediction.
+    DataPreProcessor: A class for loading and processing data for time series prediction.
 
 """
 
@@ -24,7 +24,7 @@ from config.params import Params
 
 params = Params()
 
-class DataProcessor:
+class DataPreProcessor:
     """
     A class for loading and processing data for time series prediction.
 
@@ -49,7 +49,7 @@ class DataProcessor:
         validation_ratio: float = 0.15,
         window_size=100,
     ):
-        self.data_filess = data_files
+        self.data_files = data_files
         self.train_ratio = train_ratio
         self.validation_ratio = validation_ratio
         self.delta = delta
