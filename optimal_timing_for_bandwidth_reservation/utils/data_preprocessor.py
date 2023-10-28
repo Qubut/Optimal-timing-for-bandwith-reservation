@@ -1,28 +1,25 @@
 """
-
 A module for processing data for time series prediction using neural networks.
 
 Dependencies:
-
     torch
+    dask
     pandas
     sklearn
 
 Classes:
-
     DataPreProcessor: A class for loading and processing data for time series prediction.
-
 """
 
 from typing import List, Tuple
-import numpy as np
 import torch
-import pandas as pd
-
+import dask.dataframe as dd
 from .scalers import RollingWindowScaler
 from config.params import Params
+import numpy as np
 
 params = Params()
+
 
 class DataPreProcessor:
     """
@@ -61,55 +58,53 @@ class DataPreProcessor:
         self.num_providers = len(data_files)
 
     def load_data(self):
-        main_df = pd.read_csv(self.data_files[0], sep=",", parse_dates=["Date"])
-        main_df = main_df.rename(columns={"Price": "Price_0"})
-        main_df.drop(columns=["Instance Type", "Region"], inplace=True, axis=1)
+        dfs = []
 
-        for idx, file in enumerate(self.data_files[1:], 1):
-            df = pd.read_csv(file, sep=",", parse_dates=["Date"])
-            df.drop(columns=["Instance Type", "Region"], inplace=True, axis=1)
-            df = df.rename(columns={"Price": f"Price_{idx}"})
-            main_df = pd.merge(main_df, df, on="Date", how="outer")
+        # Read all data files into a list of dataframes
+        for idx, file in enumerate(self.data_files):
+            df = dd.read_csv(file, sep=",", parse_dates=["Date"])
+            df = df.drop(columns=["Instance Type", "Region"])
+            df = df.rename(columns={"Price": f"Price_{idx}"}).set_index("Date")
+            dfs.append(df)
 
-        main_df.sort_values(by="Date", inplace=True)
-        main_df.fillna(method="ffill", inplace=True)
-        main_df.fillna(method="bfill", inplace=True)
+        # Efficiently merge all dataframes
+        main_df = dd.concat(dfs, axis=1, interleave_partitions=True).reset_index()
+
+        # Handle missing values
+        main_df = main_df.fillna(method="ffill").fillna(method="bfill")
 
         # Convert timestamp to unix timestamp (seconds since epoch)
-        main_df["timestamp_unix"] = main_df["Date"].astype(np.int64) // 10**9
-        features = main_df["timestamp_unix"].values.reshape(-1, 1)
-        prices = main_df.iloc[
-            :, 1:-1
-        ].values  # Excluding the Date and the unix timestamp
+        main_df["timestamp_unix"] = (
+            main_df["Date"].astype("M8[ns]").astype("int64") // 10**9
+        )
+        features = main_df[["timestamp_unix"]].to_dask_array(lengths=True)
+        prices = main_df.drop(columns=["Date", "timestamp_unix"]).to_dask_array(
+            lengths=True
+        )
 
-        prices_normalized = self.scaler.transform(prices.ravel()).reshape(prices.shape)
+        prices_normalized = (
+            self.scaler.transform(prices.compute().ravel())
+            .reshape(prices.shape)
+            .compute()
+        )
+        data = dd.from_array(dd.concatenate([features, prices_normalized], axis=1))
 
-        data = np.hstack([features, prices_normalized])
-
-        train_size = int(len(data) * self.train_ratio)
-
-        val_size = int(train_size * self.validation_ratio)
+        train_size = dd.from_delayed(len(data) * self.train_ratio).compute()
+        val_size = dd.from_delayed(train_size * self.validation_ratio).compute()
         _train_size = train_size - val_size
 
-        self.train_data = data[:_train_size]
-        self.validation_data = data[_train_size : _train_size + val_size]
-        self.test_data = data[_train_size + val_size :]
+        self.train_data = data.loc[: _train_size - 1].compute().to_numpy()
+        self.validation_data = (
+            data.loc[_train_size : _train_size + val_size - 1].compute().to_numpy()
+        )
+        self.test_data = data.loc[_train_size + val_size :].compute().to_numpy()
 
     def _create_inout_sequences(
         self, data: np.ndarray
     ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
-        """
-        Create input-output sequences for training or testing.
-
-        Returns:
-            List[Tuple[torch.Tensor, torch.Tensor]]: A list of tuples of input and output sequences.
-        """
-
         inout_seq = []
         length = len(data)
-
         for i in range(length - self.delta):
-            # The input is just the timestamp, so only the first column is taken
             seq = (
                 torch.FloatTensor(data[i : i + self.delta, 0])
                 .view(self.delta, -1, 1)
@@ -122,32 +117,14 @@ class DataPreProcessor:
                 .to(self.device)
             )
 
-        inout_seq.append((seq, label))
+            inout_seq.append((seq, label))
         return inout_seq
 
     def get_test_sequences(self) -> List[Tuple[torch.Tensor, torch.Tensor]]:
-        """
-        Get the sequences for testing.
-
-        Returns:
-            List[Tuple[torch.Tensor, torch.Tensor]]: A list of tuples of input and output sequences for testing.
-        """
         return self._create_inout_sequences(self.test_data)
 
     def get_train_sequences(self) -> List[Tuple[torch.Tensor, torch.Tensor]]:
-        """
-        Get the sequences for training.
-
-        Returns:
-            List[Tuple[torch.Tensor, torch.Tensor]]: A list of tuples of input and output sequences for training.
-        """
         return self._create_inout_sequences(self.train_data)
 
     def get_validation_sequences(self) -> List[Tuple[torch.Tensor, torch.Tensor]]:
-        """
-        Get the sequences for validation.
-
-        Returns:
-            List[Tuple[torch.Tensor, torch.Tensor]]: A list of tuples of input and output sequences for validation.
-        """
         return self._create_inout_sequences(self.validation_data)

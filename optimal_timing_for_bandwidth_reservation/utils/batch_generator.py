@@ -4,6 +4,7 @@ from config.params import Params
 
 params = Params()
 
+
 class BatchGenerator:
     """
     A generator that provides batches of input and target data.
