@@ -1,7 +1,8 @@
 import torch
 from typing import List, Tuple
-from config import device
+from config.params import Params
 
+params = Params()
 
 class BatchGenerator:
     """
@@ -22,7 +23,7 @@ class BatchGenerator:
         self.data = data
         self.batch_size = batch_size
         self.num_batches = len(data) // batch_size
-        self.device = device
+        self.device = params.DEVICE
 
     def __len__(self) -> int:
         """

@@ -20,8 +20,9 @@ import torch
 import pandas as pd
 
 from .scalers import RollingWindowScaler
-from config import device
+from config.params import Params
 
+params = Params()
 
 class DataProcessor:
     """
@@ -56,7 +57,7 @@ class DataProcessor:
         self.train_data = None
         self.validation_data = None
         self.test_data = None
-        self.device = device
+        self.device = params.DEVICE
         self.num_providers = len(data_files)
 
     def load_data(self):
