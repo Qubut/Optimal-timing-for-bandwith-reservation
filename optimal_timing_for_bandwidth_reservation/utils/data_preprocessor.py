@@ -62,36 +62,43 @@ class DataPreProcessor:
 
         for idx, file in enumerate(self.data_files):
             df = dd.read_csv(file, sep=",", parse_dates=["Date"])
+
+            df["Date"] = df["Date"].where(
+                df["Region"] == "us-west-1c", df["Date"].dt.tz_localize("US/Pacific")
+            )
+            df["Date"] = df["Date"].where(
+                df["Region"] == "us-west-1b", df["Date"].dt.tz_localize("US/Pacific")
+            )
+
             df = df.drop(columns=["Instance Type", "Region"])
             df = df.rename(columns={"Price": f"Price_{idx}"}).set_index("Date")
             dfs.append(df)
-        if len(dfs) > 1:
-            main_df = dd.concat(dfs, axis=1, interleave_partitions=True).reset_index()
-        else:
-            main_df = dfs[0]
-        main_df = main_df.fillna(method="ffill").fillna(method="bfill")
 
-        # Convert timestamp to unix timestamp (seconds since epoch)
-        main_df["timestamp_unix"] = (
-            main_df["Date"].astype("M8[ns]").astype("int64") // 10**9
-        )
-        price_columns = [col for col in main_df.columns if "Price_" in col]
+        if len(dfs) > 1:
+            self.main_df = dd.concat(
+                dfs, axis=1, interleave_partitions=True
+            ).reset_index()
+        else:
+            self.main_df = dfs[0]
+
+        self.main_df = self.main_df.fillna(method="ffill").fillna(method="bfill")
+
+        # Convert timezone-aware datetime to timezone-naive datetime
+        self.main_df["Date"] = self.main_df["Date"].dt.tz_localize(None)
+        self.main_df["timestamp_unix"] = self.main_df["Date"].astype("int64") // 10**9
+
+        # Normalize the prices in-place
+        price_columns = [col for col in self.main_df.columns if "Price_" in col]
         for col in price_columns:
-            main_df[col] = (
-                main_df[col]
+            self.main_df[col] = (
+                self.main_df[col]
                 .to_dask_array(lengths=True)
                 .map_blocks(self.scaler.transform, dtype=float)
             )
 
-        train_size = int(len(main_df) * self.train_ratio)
-        val_size = int(train_size * self.validation_ratio)
-        _train_size = train_size - val_size
-
-        self.train_data = main_df.loc[: _train_size - 1].compute().to_numpy()
-        self.validation_data = (
-            main_df.loc[_train_size : _train_size + val_size - 1].compute().to_numpy()
-        )
-        self.test_data = main_df.loc[_train_size + val_size :].compute().to_numpy()
+        train_size = int(len(self.main_df) * self.train_ratio)
+        self.val_size = int(train_size * self.validation_ratio)
+        self.train_size = train_size - self.val_size
 
     def _create_inout_sequences(
         self, data: np.ndarray
@@ -115,10 +122,22 @@ class DataPreProcessor:
         return inout_seq
 
     def get_test_sequences(self) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+        self.test_data = self.get_test_sequences(
+            self.main_df.loc[self.train_size + self.val_size :].compute().to_numpy()
+        )
         return self._create_inout_sequences(self.test_data)
 
     def get_train_sequences(self) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+        self.train_data = self.get_train_sequences(
+            self.main_df.loc[: self.train_size - 1].compute().to_numpy()
+        )
+
         return self._create_inout_sequences(self.train_data)
 
-    def get_validation_sequences(self) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+    def get_val_sequences(self) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+        self.val_data = self.get_val_sequences(
+            self.main_df.loc[self.train_size : self.train_size + self.val_size - 1]
+            .compute()
+            .to_numpy()
+        )
         return self._create_inout_sequences(self.validation_data)
