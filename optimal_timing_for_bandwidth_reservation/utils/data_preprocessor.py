@@ -60,17 +60,14 @@ class DataPreProcessor:
     def load_data(self):
         dfs = []
 
-        # Read all data files into a list of dataframes
         for idx, file in enumerate(self.data_files):
             df = dd.read_csv(file, sep=",", parse_dates=["Date"])
             df = df.drop(columns=["Instance Type", "Region"])
             df = df.rename(columns={"Price": f"Price_{idx}"}).set_index("Date")
             dfs.append(df)
 
-        # Efficiently merge all dataframes
         main_df = dd.concat(dfs, axis=1, interleave_partitions=True).reset_index()
 
-        # Handle missing values
         main_df = main_df.fillna(method="ffill").fillna(method="bfill")
 
         # Convert timestamp to unix timestamp (seconds since epoch)
