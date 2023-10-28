@@ -19,9 +19,9 @@ class Params:
     N_HIDDEN_L: int = 100
     DATAFILES: List[str] = field(
         default_factory=lambda: [
-            "./datasets/Dataset_NO1.csv",
-            "./datasets/Dataset_NO2.csv",
-            "./datasets/Dataset_NO3.csv",
+            "../datasets/Dataset_NO1.csv",
+            "../datasets/Dataset_NO2.csv",
+            "../datasets/Dataset_NO3.csv",
         ]
     )
     LSTM_RESULTS_PATH: str = "../out/lstm"
