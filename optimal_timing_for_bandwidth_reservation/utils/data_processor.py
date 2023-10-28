@@ -58,6 +58,7 @@ class DataProcessor:
         self.test_data = None
         self.device = device
         self.num_providers = len(data_files)
+
     def load_data(self):
         main_df = pd.read_csv(self.data_files[0], sep=",", parse_dates=["Date"])
         main_df = main_df.rename(columns={"Price": "Price_0"})
@@ -85,14 +86,14 @@ class DataProcessor:
         data = np.hstack([features, prices_normalized])
 
         train_size = int(len(data) * self.train_ratio)
-        
+
         val_size = int(train_size * self.validation_ratio)
         _train_size = train_size - val_size
-        
+
         self.train_data = data[:_train_size]
         self.validation_data = data[_train_size : _train_size + val_size]
-        self.test_data = data[_train_size + val_size:]
-        
+        self.test_data = data[_train_size + val_size :]
+
     def _create_inout_sequences(
         self, data: np.ndarray
     ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
@@ -140,7 +141,7 @@ class DataProcessor:
             List[Tuple[torch.Tensor, torch.Tensor]]: A list of tuples of input and output sequences for training.
         """
         return self._create_inout_sequences(self.train_data)
-    
+
     def get_validation_sequences(self) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         """
         Get the sequences for validation.

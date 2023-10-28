@@ -22,12 +22,13 @@ from sklearn.metrics import mean_squared_error
 
 from models.transformer import TransformerModel
 from models.lstm import LSTM
-from config.params import  Params
+from config.params import Params
 from utils.data_processor import DataProcessor
 from utils.batch_generator import BatchGenerator
 from trainers.trainer import Trainer
 
 params = Params()
+
 
 def evaluate_model(model, test_seqs):
     model.eval()
@@ -44,8 +45,9 @@ def evaluate_model(model, test_seqs):
     return mse
 
 
-
-def train_and_test(model, optimizer, loss_fn, device, scheduler=None, is_transformer=False):
+def train_and_test(
+    model, optimizer, loss_fn, device, scheduler=None, is_transformer=False
+):
     trainer = Trainer(model, loss_fn, optimizer, device, scheduler, is_transformer)
     losses = []
     accuracies = []
@@ -69,9 +71,12 @@ def train_and_test(model, optimizer, loss_fn, device, scheduler=None, is_transfo
         if epoch % params.FREQ_PRINTING == 0:
             writer.add_scalar(f"Loss/{type(model).__name__}", loss, epoch)
             writer.add_scalar(f"Accuracy/{type(model).__name__}", accuracy, epoch)
-            print(f"{type(model).__name__} - epoch: {epoch:3} loss: {loss:10.8f} accuracy: {accuracy:5.2f}")
+            print(
+                f"{type(model).__name__} - epoch: {epoch:3} loss: {loss:10.8f} accuracy: {accuracy:5.2f}"
+            )
 
     return losses, accuracies, times
+
 
 if __name__ == "__main__":
     writer = SummaryWriter(f"{params.RUNS_LOG_PATH}/time_series_experiment")
@@ -98,7 +103,11 @@ if __name__ == "__main__":
     torch.save(lstm_model.state_dict(), f"{params.SAVED_MODELS_PATH}/lstm_model.pth")
 
     transformer_model = TransformerModel(
-        ninp=1, nhead=params.N_HEAD, nhid=params.N_HIDDEN_L, nlayers=params.N_LAYERS, dropout=params.DROPOUT
+        ninp=1,
+        nhead=params.N_HEAD,
+        nhid=params.N_HIDDEN_L,
+        nlayers=params.N_LAYERS,
+        dropout=params.DROPOUT,
     ).to(params.DEVICE)
     transformer_optimizer = optim.AdamW(transformer_model.parameters(), lr=5e-3)
     transformer_loss = nn.MSELoss()
@@ -107,7 +116,12 @@ if __name__ == "__main__":
     )
 
     transformer_losses, transformer_accuracies, transformer_times = train_and_test(
-        transformer_model, transformer_optimizer, transformer_loss, params.DEVICE, transformer_scheduler, is_transformer=True
+        transformer_model,
+        transformer_optimizer,
+        transformer_loss,
+        params.DEVICE,
+        transformer_scheduler,
+        is_transformer=True,
     )
 
     transformer_val_mse = evaluate_model(transformer_model, validation_inout_seq)
@@ -115,7 +129,10 @@ if __name__ == "__main__":
     transformer_mse = evaluate_model(transformer_model, test_seqs)
     print(f"Transformer MSE on test data: {transformer_mse}")
 
-    torch.save(transformer_model.state_dict(), f"{params.SAVED_MODELS_PATH}/transformer_model.pth")
+    torch.save(
+        transformer_model.state_dict(),
+        f"{params.SAVED_MODELS_PATH}/transformer_model.pth",
+    )
 
     np.save(f"{params.LSTM_RESULTS_PATH}/lstm_iil.npy", lstm_losses)
     np.save(f"{params.LSTM_RESULTS_PATH}/lstm_acc.npy", lstm_accuracies)
@@ -125,6 +142,8 @@ if __name__ == "__main__":
     np.save(f"{params.TRANSFORMER_RESULTS_PATH}/tr_iil.npy", transformer_losses)
     np.save(f"{params.TRANSFORMER_RESULTS_PATH}/tr_acc.npy", transformer_accuracies)
     np.save(f"{params.TRANSFORMER_RESULTS_PATH}/tr_times.npy", transformer_times)
-    np.save(f"{params.TRANSFORMER_RESULTS_PATH}tr_validation_iil.npy", transformer_val_mse)
-    
+    np.save(
+        f"{params.TRANSFORMER_RESULTS_PATH}tr_validation_iil.npy", transformer_val_mse
+    )
+
     writer.close()

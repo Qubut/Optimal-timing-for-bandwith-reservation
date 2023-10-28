@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+
 class Trainer:
     """
     A class for training PyTorch models.
@@ -67,21 +68,21 @@ class Trainer:
             The loss and accuracy of the current iteration.
         """
         seq, labels = seq.to(self.device), labels.to(self.device)
-        
+
         if self.is_transformer:
             src_mask = self.model.generate_square_subsequent_mask(seq.size(0))
             y_pred = self.model(seq, src_mask).squeeze()
         else:
             y_pred = self.model(seq).squeeze()
-            
+
         loss = self.loss_fn(y_pred, labels)
         accuracy = self.compute_accuracy(y_pred, labels)
-        
+
         self.optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.7)
         self.optimizer.step()
-        
+
         return loss.item(), accuracy
 
     def train(self, data_loader):
@@ -96,12 +97,12 @@ class Trainer:
         """
         tot_loss = 0.0
         tot_accuracy = 0.0
-        length =  len(data_loader)
+        length = len(data_loader)
         for seq, labels in data_loader:
             loss, accuracy = self._train_iteration(seq, labels)
             tot_loss += loss
             tot_accuracy += accuracy
-            
+
         avg_loss = tot_loss / length
         avg_accuracy = tot_accuracy / length
         return avg_loss, avg_accuracy
@@ -118,12 +119,12 @@ class Trainer:
         """
         tot_loss = 0.0
         tot_accuracy = 0.0
-        
+
         for seq, labels in data_loader:
             loss, accuracy = self._train_iteration(seq, labels)
             tot_loss += loss
             tot_accuracy += accuracy
-            
+
         if self.scheduler is not None:
             self.scheduler.step()
 

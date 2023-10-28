@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
 
+
 class LSTM(nn.Module):
     """
-    A Long-Short Term Memory (LSTM) neural network module for predicting prices of multiple providers 
+    A Long-Short Term Memory (LSTM) neural network module for predicting prices of multiple providers
     based on timestamp inputs.
     """
 
@@ -33,7 +34,7 @@ class LSTM(nn.Module):
         Returns:
             torch.Tensor: The predicted output sequence of shape (batch_size, num_providers).
         """
-        
+
         h0 = (
             torch.zeros(1, input_seq.size(0), self.hidden_layer_size).to(
                 input_seq.device

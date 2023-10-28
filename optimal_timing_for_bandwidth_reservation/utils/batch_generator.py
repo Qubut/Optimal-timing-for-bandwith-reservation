@@ -2,6 +2,7 @@ import torch
 from typing import List, Tuple
 from config import device
 
+
 class BatchGenerator:
     """
     A generator that provides batches of input and target data.
@@ -34,14 +35,15 @@ class BatchGenerator:
         return self
 
     def __next__(self) -> Tuple[torch.Tensor, torch.Tensor]:
-
         if self.idx >= self.num_batches:
             raise StopIteration
 
-        batch_data = self.data[self.idx * self.batch_size : (self.idx + 1) * self.batch_size]
+        batch_data = self.data[
+            self.idx * self.batch_size : (self.idx + 1) * self.batch_size
+        ]
 
         batch_inputs, batch_targets = zip(*batch_data)
-        
+
         batch_inputs = torch.stack(batch_inputs).to(self.device)
         batch_targets = torch.stack(batch_targets).to(self.device)
 
