@@ -60,17 +60,17 @@ class DataPreProcessor:
     def load_data(self):
         def process_file(idx_file_tuple: Tuple[int, str]) -> dd.DataFrame:
             idx, file = idx_file_tuple
+            df = dd.read_csv(file, sep=",")
 
-            # Read the CSV, assuming every file might have a header.
-            df = dd.read_csv(file, sep=params.CSV_SEP, parse_dates=["Date"])
-            # Filter out rows where 'Date' column contains the string 'Date'
-            df = df[df["Date"] != "Date"]
+            # Convert the 'Date' column to datetime with timezone
+            df['Date'] = dd.to_datetime(df['Date'], utc=True)
+
             # Apply timezone localization based on Region
             df["Date"] = df["Date"].where(
-                df["Region"] == "us-west-1c", df["Date"].dt.tz_localize("US/Pacific")
+                df["Region"] == "us-west-1c", df["Date"].dt.tz_convert("US/Pacific")
             )
             df["Date"] = df["Date"].where(
-                df["Region"] == "us-west-1b", df["Date"].dt.tz_localize("US/Pacific")
+                df["Region"] == "us-west-1b", df["Date"].dt.tz_convert("US/Pacific")
             )
 
             df = df.drop(columns=["Instance Type", "Region"])
@@ -85,7 +85,7 @@ class DataPreProcessor:
         self.main_df["Date"] = self.main_df["Date"].dt.tz_localize(None)
         self.main_df["timestamp_unix"] = self.main_df["Date"].astype("int64") // 10**9
 
-        # Normalize the prices in-place
+        # Normalize the prices
         price_columns = [col for col in self.main_df.columns if "Price_" in col]
         for col in price_columns:
             self.main_df[col] = (
