@@ -96,14 +96,14 @@ class Trainer:
         """
         tot_loss = 0.0
         tot_accuracy = 0.0
-        
+        length =  len(data_loader)
         for seq, labels in data_loader:
             loss, accuracy = self._train_iteration(seq, labels)
             tot_loss += loss
             tot_accuracy += accuracy
             
-        avg_loss = tot_loss / len(data_loader)
-        avg_accuracy = tot_accuracy / len(data_loader)
+        avg_loss = tot_loss / length
+        avg_accuracy = tot_accuracy / length
         return avg_loss, avg_accuracy
 
     def train_with_scheduler(self, data_loader):

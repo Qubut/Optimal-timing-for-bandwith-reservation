@@ -61,11 +61,11 @@ class DataProcessor:
     def load_data(self):
         main_df = pd.read_csv(self.data_files[0], sep=",", parse_dates=["Date"])
         main_df = main_df.rename(columns={"Price": "Price_0"})
-        main_df.drop(columns=["Instance Type", "Region"], inplace=True)
+        main_df.drop(columns=["Instance Type", "Region"], inplace=True, axis=1)
 
         for idx, file in enumerate(self.data_files[1:], 1):
             df = pd.read_csv(file, sep=",", parse_dates=["Date"])
-            df.drop(columns=["Instance Type", "Region"], inplace=True)
+            df.drop(columns=["Instance Type", "Region"], inplace=True, axis=1)
             df = df.rename(columns={"Price": f"Price_{idx}"})
             main_df = pd.merge(main_df, df, on="Date", how="outer")
 
