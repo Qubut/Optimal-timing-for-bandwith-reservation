@@ -60,19 +60,16 @@ class DataPreProcessor:
     def load_data(self):
         def process_file(idx_file_tuple: Tuple[int, str]) -> dd.DataFrame:
             idx, file = idx_file_tuple
-            df = dd.read_csv(file, sep=",")
-
-            # Convert the 'Date' column to datetime with timezone
+            df = dd.read_csv(file, sep=params.CSV_SEP)
+            df = df[df['Date'].str.match(r'\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}')]
+            
             df['Date'] = dd.to_datetime(df['Date'], utc=True)
-
-            # Apply timezone localization based on Region
-            df["Date"] = df["Date"].where(
-                df["Region"] == "us-west-1c", df["Date"].dt.tz_convert("US/Pacific")
-            )
-            df["Date"] = df["Date"].where(
-                df["Region"] == "us-west-1b", df["Date"].dt.tz_convert("US/Pacific")
-            )
-
+            mask = df["Region"].isin(["us-west-1b", "us-west-1c"])
+            df['Date'] = df[mask]['Date'].dt.tz_convert("US/Pacific")
+            df = df.dropna(subset=['Date'])
+            df["Date"] = df["Date"].dt.tz_localize(None)
+            df['Date'] = df["Date"].astype("int64") // 10**9
+            
             df = df.drop(columns=["Instance Type", "Region"])
             return df.rename(columns={"Price": f"Price_{idx}"}).set_index("Date")
 
