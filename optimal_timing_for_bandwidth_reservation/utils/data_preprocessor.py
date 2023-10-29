@@ -14,15 +14,15 @@ Classes:
 from typing import List, Tuple
 import torch
 import dask.dataframe as dd
-import dask
 from .scalers import RollingWindowScaler
 from config.params import Params
 import numpy as np
 import logging
+from functools import partial
+from config.log import logger
 
 params = Params()
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+
 
 class DataPreProcessor:
     """
@@ -61,46 +61,29 @@ class DataPreProcessor:
         self.device = params.DEVICE
         self.num_providers = len(data_files)
 
-        def process_file(idx_file_tuple: Tuple[int, str]) -> dd.DataFrame:
-            idx, file = idx_file_tuple
-            logger.info(f"Starting processing for file {file}")
-
-            df = dd.read_csv(file, sep=Params().CSV_SEP)
-            logger.debug(f"Data loaded for file {file}")
-
-            df = df[df['Date'].str.match(r'\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}')]
-            logger.debug(f"Filtered rows based on date pattern for file {file}")
-
-            df['Date'] = dd.to_datetime(df['Date'], utc=True)
-            mask = df["Region"].isin(["us-west-1b", "us-west-1c"])
-            df['Date'] = df[mask]['Date'].dt.tz_convert("US/Pacific")
-            df = df.dropna(subset=['Date'])
-            df["Date"] = df["Date"].dt.tz_localize(None)
-            df['Date'] = df["Date"].astype("int64") // 10**9
-            logger.debug(f"Date transformations done for file {file}")
-
-            df = df.drop(columns=["Instance Type", "Region"])
-            logger.info(f"Finished processing for file {file}")
-            return df.rename(columns={"Price": f"Price_{idx}"}).set_index("Date")
-
-
         logger.info("Starting data loading and processing for all files...")
-        dfs_list = [process_file(item) for item in enumerate(self.data_files)]
+        dfs_list = [self._process_file(item) for item in enumerate(self.data_files)]
         dfs = dd.multi.concat(dfs_list, axis=0, interleave_partitions=True)
 
         logger.info("Concatenating Dask DataFrames and computing the main DataFrame")
-        self.main_df = dfs.compute()
-        self.main_df = self.main_df.fillna(method="ffill").fillna(method="bfill")
+        self.main_df = dfs
+        first_partition_length = self.main_df.get_partition(0).shape[0].compute()
 
-        logger.info("Processing datetime and prices")
-        self.main_df["Date"] = self.main_df["Date"].dt.tz_localize(None)
-        self.main_df["timestamp_unix"] = self.main_df["Date"].astype("int64") // 10**9
+        if first_partition_length == 0:
+            raise ValueError("The first partition has zero rows!")
 
-        price_columns = [col for col in self.main_df.columns if "Price_" in col]
-        for col in price_columns:
-            logger.debug(f"Normalizing data for column {col}")
-            self.main_df[col] = self.main_df[col].to_dask_array(lengths=True).map_blocks(self.scaler.transform, dtype=float)
+        desired_partition_size = 1_000_000
+        estimated_partitions = max(
+            1,
+            len(self.main_df)
+            // first_partition_length
+            * (first_partition_length // desired_partition_size),
+        )
 
+        self.main_df = self.main_df.repartition(npartitions=estimated_partitions)
+        self.main_df = (
+            self.main_df.fillna(method="ffill").fillna(method="bfill").compute()
+        )
         train_size = int(len(self.main_df) * self.train_ratio)
         self.val_size = int(train_size * self.validation_ratio)
         self.train_size = train_size - self.val_size
@@ -110,7 +93,7 @@ class DataPreProcessor:
         self, data: np.ndarray
     ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         inout_seq = []
-        length = len(data)
+        length = data.shape[0]
         for i in range(length - self.delta):
             seq = (
                 torch.FloatTensor(data[i : i + self.delta, 0])
@@ -118,9 +101,14 @@ class DataPreProcessor:
                 .to(self.device)
             )
 
+            # label = (
+            #     torch.FloatTensor(data[i + self.delta : i + self.delta + 1, 1:])
+            #     .view(1, -1, self.num_providers)
+            #     .to(self.device)
+            # )
             label = (
-                torch.FloatTensor(data[i + self.delta : i + self.delta + 1, 1:])
-                .view(1, -1, self.num_providers)
+                torch.FloatTensor(data[i + 1 : i + self.delta + 1, 1:])
+                .view(self.delta, self.num_providers)
                 .to(self.device)
             )
 
@@ -129,24 +117,60 @@ class DataPreProcessor:
 
     def get_test_sequences(self) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         logger.info("getting test in-out sequences")
-        self.test_data = self.get_test_sequences(
-            self.main_df.loc[self.train_size + self.val_size :].compute().to_numpy()
-        )
-        return self._create_inout_sequences(self.test_data)
+        return self._generate_sequences(self.train_size + self.val_size, None)
 
     def get_train_sequences(self) -> List[Tuple[torch.Tensor, torch.Tensor]]:
-        logger.info("getting train in-out sequences")
-        self.train_data = self.get_train_sequences(
-            self.main_df.loc[: self.train_size - 1].compute().to_numpy()
-        )
-
-        return self._create_inout_sequences(self.train_data)
+        logger.info("getting training in-out sequences")
+        return self._generate_sequences(None, self.train_size - 1)
 
     def get_val_sequences(self) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         logger.info("getting validation in-out sequences")
-        self.val_data = self.get_val_sequences(
-            self.main_df.loc[self.train_size : self.train_size + self.val_size - 1]
-            .compute()
-            .to_numpy()
+        return self._generate_sequences(
+            self.train_size, self.train_size + self.val_size - 1
         )
-        return self._create_inout_sequences(self.validation_data)
+
+    def _generate_sequences(
+        self, start, end
+    ) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+        if end:
+            if start:
+                results = self.main_df.iloc[start:end]
+            else:
+                results = self.main_df.iloc[:end]
+        else:
+            results = self.main_df.iloc[start:]
+        data = results.to_numpy()
+        sequences = self._create_inout_sequences(data)
+        return sequences
+
+    def _process_file(self, idx_file_tuple: Tuple[int, str]) -> dd:
+        idx, file = idx_file_tuple
+        logger.info(f"Starting processing for file {file}")
+
+        df = dd.read_csv(file, sep=Params().CSV_SEP)
+        logger.info(f"Data loaded for file {file}")
+
+        df = df[
+            df["Date"].str.match(r"\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}")
+        ]
+        logger.info(f"Filtered rows based on date pattern for file {file}")
+
+        df["Date"] = dd.to_datetime(df["Date"], utc=True)
+        mask = df["Region"].isin(["us-west-1b", "us-west-1c"])
+        df["Date"] = df[mask]["Date"].dt.tz_convert("US/Pacific")
+        df = df.dropna(subset=["Date"])
+        df["Date"] = df["Date"].dt.tz_localize(None)
+        df["Date"] = df["Date"].astype("int64") // 10**9
+        logger.info(f"Date transformations done for file {file}")
+
+        df = df.drop(columns=["Instance Type", "Region"])
+        col = "Price"
+        logger.info(f"Normalizing data for column {col}")
+        df = df.map_partitions(self._normalize_column, col_name=col, meta=df._meta)
+        logger.info(f"Finished processing for file {file}")
+        return df.rename(columns={"Price": f"Price_{idx}"})
+
+    def _normalize_column(self, df: dd, col_name: str) -> dd:
+        """Normalize a specific column in a partition."""
+        df[col_name] = self.scaler.transform(df[col_name])
+        return df

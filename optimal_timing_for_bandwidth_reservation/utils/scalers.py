@@ -1,4 +1,4 @@
-import numpy as np
+import dask.dataframe as dd
 import pandas as pd
 
 
@@ -8,26 +8,23 @@ class RollingWindowScaler:
         self.rolling_mean = None
         self.rolling_std = None
 
-    def transform(self, data):
-        self.rolling_mean = (
-            pd.Series(data.flatten()).rolling(window=self.window_size).mean().values
-        )
+    def transform(self, data_column):
+        if isinstance(data_column, pd.Series):
+            data_column = dd.from_pandas(data_column, npartitions=10)
 
-        self.rolling_std = (
-            pd.Series(data.flatten()).rolling(window=self.window_size).std().values
-        )
+        rolling_mean = data_column.rolling(window=self.window_size).mean()
+        rolling_std = data_column.rolling(window=self.window_size).std()
 
-        self.rolling_mean[np.isnan(self.rolling_mean)] = self.rolling_mean[
-            self.window_size - 1
-        ]
-        self.rolling_std[np.isnan(self.rolling_std)] = self.rolling_std[
-            self.window_size - 1
-        ]
-        scaled_data = (data - self.rolling_mean.reshape(-1, 1)) / (
-            self.rolling_std.reshape(-1, 1) + 1e-8
-        )
+        rolling_mean = rolling_mean.fillna(method="bfill").fillna(method="ffill")
+        rolling_std = rolling_std.fillna(method="bfill").fillna(method="ffill")
 
-        return scaled_data.reshape(-1, 1)
+        scaled_data = (data_column - rolling_mean) / (rolling_std + 1e-8)
+        self.rolling_mean = rolling_mean
+        self.rolling_std = rolling_std
+        return scaled_data
 
-    def inverse_transform(self, data):
-        return (data * (self.rolling_std + 1e-8) + self.rolling_mean).reshape(-1, 1)
+    def inverse_transform(self, data_column):
+        if not isinstance(data_column, dd.Series):
+            raise ValueError("Expecting a Dask DataFrame column (Dask Series).")
+
+        return data_column * (self.rolling_std + 1e-8) + self.rolling_mean
