@@ -17,8 +17,6 @@ import dask.dataframe as dd
 from .scalers import RollingWindowScaler
 from config.params import Params
 import numpy as np
-import logging
-from functools import partial
 from config.log import logger
 
 params = Params()
@@ -147,7 +145,7 @@ class DataPreProcessor:
         idx, file = idx_file_tuple
         logger.info(f"Starting processing for file {file}")
 
-        df = dd.read_csv(file, sep=Params().CSV_SEP)
+        df = dd.read_csv(file, sep=params.CSV_SEP)
         logger.info(f"Data loaded for file {file}")
 
         df = df[
