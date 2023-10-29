@@ -46,6 +46,6 @@ class LSTM(nn.Module):
 
         lstm_out, h0 = self.lstm(input_seq, h0)
 
-        predictions = self.linear(lstm_out[:, -1, :])
+        predictions = self.linear(lstm_out)
 
         return predictions

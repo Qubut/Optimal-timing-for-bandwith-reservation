@@ -26,6 +26,11 @@ from config.params import Params
 from utils.data_preprocessor import DataPreProcessor
 from utils.batch_generator import BatchGenerator
 from trainers.trainer import Trainer
+import os
+from config.log import logger
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 
 params = Params()
 
@@ -82,9 +87,8 @@ if __name__ == "__main__":
     writer = SummaryWriter(f"{params.RUNS_LOG_PATH}/time_series_experiment")
     files = params.DATAFILES
     dp = DataPreProcessor(files)
-    dp.load_data()
     train_inout_seq = dp.get_train_sequences()
-    validation_inout_seq = dp.get_validation_sequences()
+    validation_inout_seq = dp.get_val_sequences()
     test_seqs = dp.get_test_sequences()
 
     lstm_model = LSTM(num_providers=dp.num_providers).to(params.DEVICE)
@@ -96,9 +100,9 @@ if __name__ == "__main__":
     )
 
     lstm_val_mse = evaluate_model(lstm_model, validation_inout_seq)
-    print(f"LSTM MSE on validation data: {lstm_val_mse}")
+    logger.info(f"LSTM MSE on validation data: {lstm_val_mse}")
     lstm_mse = evaluate_model(lstm_model, test_seqs)
-    print(f"LSTM MSE on test data: {lstm_mse}")
+    logger.info(f"LSTM MSE on test data: {lstm_mse}")
 
     torch.save(lstm_model.state_dict(), f"{params.SAVED_MODELS_PATH}/lstm_model.pth")
 
@@ -125,9 +129,9 @@ if __name__ == "__main__":
     )
 
     transformer_val_mse = evaluate_model(transformer_model, validation_inout_seq)
-    print(f"Transformer MSE on validation data: {transformer_val_mse}")
+    logger.info(f"Transformer MSE on validation data: {transformer_val_mse}")
     transformer_mse = evaluate_model(transformer_model, test_seqs)
-    print(f"Transformer MSE on test data: {transformer_mse}")
+    logger.info(f"Transformer MSE on test data: {transformer_mse}")
 
     torch.save(
         transformer_model.state_dict(),

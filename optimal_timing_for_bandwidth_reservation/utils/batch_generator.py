@@ -46,7 +46,7 @@ class BatchGenerator:
 
         batch_inputs, batch_targets = zip(*batch_data)
 
-        batch_inputs = torch.stack(batch_inputs).to(self.device)
+        batch_inputs = torch.stack(batch_inputs).squeeze(2).to(self.device)
         batch_targets = torch.stack(batch_targets).to(self.device)
 
         self.idx += 1

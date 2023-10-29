@@ -39,14 +39,12 @@ class TransformerModel(nn.Module):
     ):
         super(TransformerModel, self).__init__()
 
-        # Set model attributes
         self.model_type = "Transformer"
         self.pos_encoder = _PositionalEncoding(ninp, dropout)
         encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
         self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
         self.decoder = nn.Linear(ninp, num_providers)
 
-        # Initialize weights
         self.init_weights()
 
     @staticmethod
@@ -118,10 +116,8 @@ class _PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(_PositionalEncoding, self).__init__()
 
-        # Initialize the dropout layer
         self.dropout = nn.Dropout(p=dropout)
 
-        # Generate the positional encoding tensor
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(
@@ -144,8 +140,6 @@ class _PositionalEncoding(nn.Module):
         Returns:
             torch.Tensor: The output tensor with positional encoding applied.
         """
-        # Apply the positional encoding tensor to the input tensor
         x = x + self._pe[: x.size(0), :]
 
-        # Apply dropout to the output tensor
         return self.dropout(x)
