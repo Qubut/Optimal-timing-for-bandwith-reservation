@@ -76,7 +76,7 @@ def train_and_test(
         if epoch % params.FREQ_PRINTING == 0:
             writer.add_scalar(f"Loss/{type(model).__name__}", loss, epoch)
             writer.add_scalar(f"Accuracy/{type(model).__name__}", accuracy, epoch)
-            print(
+            logger.info(
                 f"{type(model).__name__} - epoch: {epoch:3} loss: {loss:10.8f} accuracy: {accuracy:5.2f}"
             )
 
