@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-
+from config.log import logger
 
 class Trainer:
     """
@@ -70,13 +70,17 @@ class Trainer:
         seq, labels = seq.to(self.device), labels.to(self.device)
 
         if self.is_transformer:
+            logger.debug("Training using transformer model...")
             src_mask = self.model.generate_square_subsequent_mask(seq.size(0))
             y_pred = self.model(seq, src_mask).squeeze()
         else:
+            logger.debug("Training using lstm model...")
             y_pred = self.model(seq).squeeze()
 
         loss = self.loss_fn(y_pred, labels)
         accuracy = self.compute_accuracy(y_pred, labels)
+
+        logger.debug(f"Loss computed: {loss.item()}. Proceeding with backpropagation...")
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -95,16 +99,19 @@ class Trainer:
         Returns:
             The average training loss and accuracy per batch.
         """
+        logger.info("Starting training...")
         tot_loss = 0.0
         tot_accuracy = 0.0
         length = len(data_loader)
-        for seq, labels in data_loader:
+        for i, (seq, labels) in enumerate(data_loader):
             loss, accuracy = self._train_iteration(seq, labels)
             tot_loss += loss
             tot_accuracy += accuracy
+            logger.debug(f"Batch {i + 1} of {length} completed with loss: {loss}")
 
         avg_loss = tot_loss / length
         avg_accuracy = tot_accuracy / length
+        logger.info(f"Training completed. Average loss: {avg_loss}, Average accuracy: {avg_accuracy}")
         return avg_loss, avg_accuracy
 
     def train_with_scheduler(self, data_loader):
@@ -117,17 +124,19 @@ class Trainer:
         Returns:
             The average training loss and accuracy per batch.
         """
+        logger.info("Starting training with Scheduler...")
         tot_loss = 0.0
         tot_accuracy = 0.0
-
-        for seq, labels in data_loader:
+        length = length(data_loader)
+        for i, (seq, labels) in enumerate(data_loader):
             loss, accuracy = self._train_iteration(seq, labels)
             tot_loss += loss
             tot_accuracy += accuracy
-
+            logger.debug(f"Batch {i + 1} of {length} completed with loss: {loss}")
         if self.scheduler is not None:
             self.scheduler.step()
 
         avg_loss = tot_loss / len(data_loader)
         avg_accuracy = tot_accuracy / len(data_loader)
+        logger.info(f"Training completed. Average loss: {avg_loss}, Average accuracy: {avg_accuracy}")
         return avg_loss, avg_accuracy
