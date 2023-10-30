@@ -10,7 +10,7 @@ class RollingWindowScaler:
 
     def transform(self, data_column):
         if isinstance(data_column, pd.Series):
-            data_column = dd.from_pandas(data_column, npartitions=10)
+            data_column = dd.from_pandas(data_column, npartitions=1)
 
         rolling_mean = data_column.rolling(window=self.window_size).mean()
         rolling_std = data_column.rolling(window=self.window_size).std()
@@ -24,7 +24,7 @@ class RollingWindowScaler:
         return scaled_data
 
     def inverse_transform(self, data_column):
-        if not isinstance(data_column, dd.Series):
-            raise ValueError("Expecting a Dask DataFrame column (Dask Series).")
+        if isinstance(data_column, pd.Series):
+            data_column = dd.from_pandas(data_column, npartitions=1)
 
         return data_column * (self.rolling_std + 1e-8) + self.rolling_mean

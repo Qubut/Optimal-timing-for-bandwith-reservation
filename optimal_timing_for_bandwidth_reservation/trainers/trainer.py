@@ -128,7 +128,7 @@ class Trainer:
         logger.info("Starting training with Scheduler...")
         tot_loss = 0.0
         tot_accuracy = 0.0
-        length = length(data_loader)
+        length = len(data_loader)
         for i, (seq, labels) in enumerate(data_loader):
             loss, accuracy = self._train_iteration(seq, labels)
             tot_loss += loss

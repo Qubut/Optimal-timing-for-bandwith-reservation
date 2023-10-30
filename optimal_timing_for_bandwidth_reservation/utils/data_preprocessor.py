@@ -18,6 +18,7 @@ from .scalers import RollingWindowScaler
 from config.params import Params
 import numpy as np
 from config.log import logger
+import pandas as pd
 
 params = Params()
 
@@ -137,7 +138,11 @@ class DataPreProcessor:
                 results = self.main_df.iloc[:end]
         else:
             results = self.main_df.iloc[start:]
-        data = results.to_numpy()
+        col_name = "Price"
+        data = results
+        for col in (col for col in results.columns if col.startswith(col_name)):
+            logger.info(f"Normalizing data for column {col}")
+            data = self._normalize_column(results.to_numpy(), col)
         sequences = self._create_inout_sequences(data)
         return sequences
 
@@ -162,13 +167,10 @@ class DataPreProcessor:
         logger.info(f"Date transformations done for file {file}")
 
         df = df.drop(columns=["Instance Type", "Region"])
-        col = "Price"
-        logger.info(f"Normalizing data for column {col}")
-        df = df.map_partitions(self._normalize_column, col_name=col, meta=df._meta)
         logger.info(f"Finished processing for file {file}")
         return df.rename(columns={"Price": f"Price_{idx}"})
 
-    def _normalize_column(self, df: dd, col_name: str) -> dd:
+    def _normalize_column(self, df: pd.DataFrame, col_name: str) -> dd:
         """Normalize a specific column in a partition."""
-        df[col_name] = self.scaler.transform(df[col_name])
+        df[col_name] = self.scaler.transform(df[col_name]).compute()
         return df
