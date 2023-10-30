@@ -29,7 +29,7 @@ def setup_logger(log_directory="./logs"):
     logger.addHandler(console_handler)
 
     coloredlogs.install(
-        level="DEBUG", logger=logger, fmt=log_format, datefmt=log_date_format
+        level="INFO", logger=logger, fmt=log_format, datefmt=log_date_format
     )
 
     return logger

@@ -91,23 +91,8 @@ if __name__ == "__main__":
     validation_inout_seq = dp.get_val_sequences()
     test_seqs = dp.get_test_sequences()
 
-    lstm_model = LSTM(num_providers=dp.num_providers).to(params.DEVICE)
-    lstm_optimizer = optim.Adam(lstm_model.parameters(), lr=1e-3)
-    lstm_loss = nn.MSELoss()
-
-    lstm_losses, lstm_accuracies, lstm_times = train_and_test(
-        lstm_model, lstm_optimizer, lstm_loss, params.DEVICE
-    )
-
-    lstm_val_mse = evaluate_model(lstm_model, validation_inout_seq)
-    logger.info(f"LSTM MSE on validation data: {lstm_val_mse}")
-    lstm_mse = evaluate_model(lstm_model, test_seqs)
-    logger.info(f"LSTM MSE on test data: {lstm_mse}")
-
-    torch.save(lstm_model.state_dict(), f"{params.SAVED_MODELS_PATH}/lstm_model.pth")
-
     transformer_model = TransformerModel(
-        ninp=1,
+        ninp=params.N_IP,
         nhead=params.N_HEAD,
         nhid=params.N_HIDDEN_L,
         nlayers=params.N_LAYERS,
@@ -137,11 +122,6 @@ if __name__ == "__main__":
         transformer_model.state_dict(),
         f"{params.SAVED_MODELS_PATH}/transformer_model.pth",
     )
-
-    np.save(f"{params.LSTM_RESULTS_PATH}/lstm_iil.npy", lstm_losses)
-    np.save(f"{params.LSTM_RESULTS_PATH}/lstm_acc.npy", lstm_accuracies)
-    np.save(f"{params.LSTM_RESULTS_PATH}/lstm_times.npy", lstm_times)
-    np.save(f"{params.LSTM_RESULTS_PATH}/lstm_validation_iil.npy", lstm_val_mse)
 
     np.save(f"{params.TRANSFORMER_RESULTS_PATH}/tr_iil.npy", transformer_losses)
     np.save(f"{params.TRANSFORMER_RESULTS_PATH}/tr_acc.npy", transformer_accuracies)

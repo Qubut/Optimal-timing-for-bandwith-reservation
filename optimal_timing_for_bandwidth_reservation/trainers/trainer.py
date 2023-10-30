@@ -33,11 +33,12 @@ class Trainer:
             device: The device type on which the model is trained.
             is_transformer: Boolean indicating if the model is a transformer.
         """
-        self.model = model
+        
         self.loss_fn = loss_fn
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.device = device
+        self.model = model.to(device)
         self.is_transformer = is_transformer
 
     def compute_accuracy(self, outputs, labels):

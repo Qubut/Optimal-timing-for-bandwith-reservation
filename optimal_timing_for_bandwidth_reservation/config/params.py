@@ -13,7 +13,8 @@ class Params:
     DEVICE: device = field(
         default_factory=lambda: device("cuda" if is_available() else "cpu")
     )
-    N_HEAD: int = 5
+    N_HEAD: int = 4
+    N_IP: int = 4
     N_LAYERS: int = 5
     DROPOUT: float = 0.25
     N_HIDDEN_L: int = 100
